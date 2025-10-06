@@ -7,6 +7,8 @@ const logger = {
     pausedDuration: 0,
     count: 0,
     arrayTracker: 0,
+    intervalId: null,
+    lastTime: 0,
 
     eventLog: [[], [], [], [], [], [],],
     prev30: [[], [], [], [], [], [],],
@@ -14,19 +16,24 @@ const logger = {
 
     startTimer: function () {
         const now = new Date();
-
+    
         if (!logger.startTime) {
             logger.startTime = now;
         }
-
+    
         if (logger.pauseStart) {
             logger.pausedDuration += (now - this.pauseStart);
             logger.pauseStart = null;
         }
-
+    
         logger.timerActive = true;
+    
+        if (!logger.intervalId) {
+            logger.dataCollectingTimer();
+        }
+    
         return this;
-    },
+    },  
 
     getElapsedTime: function () {
         if (!logger.startTime) return 0;
@@ -78,7 +85,6 @@ const logger = {
 
     Tracker: function () {
         logger.startTimer();
-        logger.dataCollectingTimer();
         document.addEventListener('mousemove', this.onMouseMove);
         document.addEventListener('mousedown', this.onMouseDown);
         document.addEventListener('wheel', this.onMouseWheel);
@@ -90,6 +96,11 @@ const logger = {
         if (logger.timerActive) {
             logger.pauseStart = new Date();
             logger.timerActive = false;
+        }
+
+        if (logger.intervalId) {
+            clearInterval(logger.intervalId);
+            logger.intervalId = null;
         }
 
         document.removeEventListener('mousemove', this.onMouseMove);
@@ -105,8 +116,16 @@ const logger = {
         logger.pauseStart = null;
         logger.pausedDuration = 0;
         logger.eventLog = [[], [], [], [], [], []];
+        logger.prev30 = [[], [], [], [], [], []];
+        logger.fakeProc = [[], [], [], [], [], []];
         logger.arrayTracker = 0;
         logger.count = 0;
+        logger.lastTime = 0;
+
+        if (logger.intervalId) {
+            clearInterval(logger.intervalId);
+            logger.intervalId = null;
+        }
 
         document.removeEventListener('mousemove', this.onMouseMove);
         document.removeEventListener('mousedown', this.onMouseDown);
@@ -116,7 +135,7 @@ const logger = {
     },
 
     transferToPrev: function(){
-        for(i=0;i<logger.eventLog.length;i++){
+        for(let i=0;i<logger.eventLog.length;i++){
             logger.prev30[i] = logger.prev30[i].concat(logger.eventLog[i].slice())
         }
         logger.eventLog = [[], [], [], [], [], []];
@@ -126,7 +145,7 @@ const logger = {
     },
 
     transferToProc: function(){
-        for(i=0;i<logger.prev30.length;i++){
+        for(let i=0;i<logger.prev30.length;i++){
             logger.fakeProc[i] = logger.fakeProc[i].concat(logger.prev30[i].slice())
         }
         logger.prev30 = [[], [], [], [], [], []];
@@ -135,14 +154,15 @@ const logger = {
 
     
     dataCollectingTimer: function(){
-        let lastTime = 0;
-        setInterval(() =>{
-            if(parseFloat(logger.getElapsedTime()) - lastTime >= 5){
-                lastTime += 5;
+        if(logger.timerActive){
+        logger.intervalId=setInterval(() =>{
+            if(parseFloat(logger.getElapsedTime()) - logger.lastTime >= 5){
+                logger.lastTime += 5;
                 logger.transferToPrev();
                 logger.transferToProc();
             }
         }, 100)
+        } 
     },
 
 };
